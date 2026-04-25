@@ -1,0 +1,154 @@
+import React, { useCallback, useRef, useState } from 'react';
+import {
+  Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, View,
+} from 'react-native';
+import { RemoteKey } from './src/types';
+import { Colors } from './src/constants/colors';
+import { useDevice } from './src/hooks/useDevice';
+import { DeviceSelector } from './src/components/DeviceSelector';
+import { Toast } from './src/components/Toast';
+import { TabBar, TabId } from './src/components/TabBar';
+import { RemoteScreen } from './src/screens/RemoteScreen';
+import { AppsScreen } from './src/screens/AppsScreen';
+import { KeyboardScreen } from './src/screens/KeyboardScreen';
+import { OTTScreen } from './src/screens/OTTScreen';
+
+export default function App() {
+  const { devices, activeDevice, connStatus, selectDevice, sendKey, launchApp, addDevice, removeDevice } = useDevice();
+
+  const [pressed, setPressed]   = useState<string | null>(null);
+  const [toast, setToast]       = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('remote');
+
+  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const tap = useCallback((id: string, label: string) => {
+    setPressed(id);
+    setToast(label);
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    pressTimer.current = setTimeout(() => setPressed(null), 180);
+    toastTimer.current = setTimeout(() => setToast(null), 1400);
+  }, []);
+
+  const handleKey = useCallback((key: RemoteKey, label: string) => {
+    tap(key, label);
+    sendKey(key).catch(() => {});
+  }, [tap, sendKey]);
+
+  const handleLaunch = useCallback((id: string, label?: string) => {
+    tap(id, `Launching ${label ?? id}`);
+    launchApp(id).catch(() => {});
+  }, [tap, launchApp]);
+
+  const handleSendText = useCallback((text: string) => {
+    // For each character, send as shell input
+    // This is Firestick-specific; Sony/Samsung use their own text-input APIs
+    tap('text', `Sending: ${text}`);
+  }, [tap]);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.bgEnd} />
+      <View style={styles.bg}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.cardWrapper}>
+            {/* Toast notification */}
+            <Toast message={toast} />
+
+            {/* Remote body card */}
+            <View style={styles.card}>
+              {/* Device selector + connection status */}
+              <DeviceSelector
+                devices={devices}
+                active={activeDevice}
+                isConnected={connStatus.isConnected}
+                onSelect={selectDevice}
+                onAdd={addDevice}
+                onRemove={removeDevice}
+              />
+
+              {/* Tab content */}
+              {activeTab === 'remote' && (
+                <RemoteScreen
+                  onKey={handleKey}
+                  onLaunchApp={(id) => handleLaunch(id)}
+                  pressed={pressed}
+                />
+              )}
+              {activeTab === 'apps' && (
+                <AppsScreen onLaunch={(id) => handleLaunch(id)} />
+              )}
+              {activeTab === 'keyboard' && (
+                <KeyboardScreen onKey={handleKey} onSendText={handleSendText} />
+              )}
+              {activeTab === 'ott' && (
+                <OTTScreen onLaunch={(id) => handleLaunch(id)} />
+              )}
+
+              {/* Bottom tab bar */}
+              <TabBar active={activeTab} onChange={setActiveTab} />
+            </View>
+
+            {/* Subtle amber reflection below card */}
+            <View style={styles.reflection} />
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.bgEnd,
+  },
+  bg: {
+    flex: 1,
+    backgroundColor: Colors.bgMid,
+  },
+  scroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: Platform.OS === 'android' ? 24 : 16,
+  },
+  cardWrapper: {
+    width: '100%',
+    maxWidth: 380,
+    position: 'relative',
+  },
+  card: {
+    borderRadius: 44,
+    padding: 24,
+    backgroundColor: Colors.remoteStart,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 40 },
+    shadowOpacity: 0.8,
+    shadowRadius: 40,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+  },
+  reflection: {
+    position: 'absolute',
+    bottom: -16,
+    left: 32,
+    right: 32,
+    height: 32,
+    borderRadius: 100,
+    backgroundColor: Colors.amber,
+    opacity: 0.15,
+    // blur not supported in RN — use shadow instead on iOS
+    shadowColor: Colors.amber,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+});

@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "TV Remote",
+    "slug": "tv-remote",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#05070d",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#05070d"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tvremote.app",
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "TV Remote needs local network access to communicate with your TV and streaming devices.",
+        "NSBonjourServices": [
+          "_androidtvremote2._tcp",
+          "_googlecast._tcp"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#05070d"
+      },
+      "package": "com.tvremote.app",
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7ab05497-118a-47ab-94ee-a0def9af957b"
+      }
+    }
+  }
+}
