@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
     "backgroundColor": "#05070d",
     "icon": "./assets/icon.png",
     "splash": {
@@ -20,7 +21,8 @@
         "NSBonjourServices": [
           "_androidtvremote2._tcp",
           "_googlecast._tcp"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -37,7 +39,8 @@
       ]
     },
     "plugins": [
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

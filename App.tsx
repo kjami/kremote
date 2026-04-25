@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, View,

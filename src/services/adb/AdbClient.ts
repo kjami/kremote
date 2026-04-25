@@ -1,5 +1,5 @@
 import TcpSocket from 'react-native-tcp-socket';
-import { RSA } from 'react-native-rsa-native';
+import forge from 'node-forge';
 import * as SecureStore from 'expo-secure-store';
 import {
   CMD, AUTH_TYPE,
@@ -155,22 +155,26 @@ export class AdbClient {
   private async handleAuth(authType: number, token: Uint8Array): Promise<void> {
     if (authType === AUTH_TYPE.TOKEN) {
       try {
-        // Sign the token with our private key (SHA1withRSA)
-        const tokenBase64 = Buffer.from(token).toString('base64');
-        const sig = await RSA.signWithAlgorithm(tokenBase64, this.privateKey, 'SHA1withRSA');
-        const sigBytes = Buffer.from(sig, 'base64');
+        // Sign the token with our private key (PKCS#1 v1.5, SHA1)
+        const privateKey = forge.pki.privateKeyFromPem(this.privateKey);
+        const md = forge.md.sha1.create();
+        // forge expects binary string input
+        let tokenBin = '';
+        for (let i = 0; i < token.length; i++) tokenBin += String.fromCharCode(token[i]);
+        md.update(tokenBin);
+        const signatureBin = privateKey.sign(md);
+        const sigBytes = new Uint8Array(signatureBin.length);
+        for (let i = 0; i < signatureBin.length; i++) sigBytes[i] = signatureBin.charCodeAt(i);
         this.socketWrite(encodeMessage({
           command: CMD.AUTH,
           arg0: AUTH_TYPE.SIGNATURE,
           arg1: 0,
-          data: new Uint8Array(sigBytes.buffer, sigBytes.byteOffset, sigBytes.byteLength),
+          data: sigBytes,
         }));
       } catch {
-        // Signature failed — send public key so user can accept on TV
         this.sendPublicKey();
       }
     } else if (authType === AUTH_TYPE.SIGNATURE) {
-      // Signature rejected — send public key
       this.sendPublicKey();
     }
   }
@@ -203,10 +207,15 @@ export class AdbClient {
       }
     } catch { /* generate fresh */ }
 
-    const keys = await RSA.generateKeys(2048);
-    this.privateKey = keys.private;
-    this.publicKey = keys.public;
-    await SecureStore.setItemAsync(KEY_STORE_KEY, keys.private);
-    await SecureStore.setItemAsync(PUB_STORE_KEY, keys.public);
+    // Generate fresh 2048-bit RSA key pair (~1-3s on a phone, one-time)
+    const keypair = await new Promise<forge.pki.rsa.KeyPair>((resolve, reject) => {
+      forge.pki.rsa.generateKeyPair({ bits: 2048, workers: -1 }, (err, kp) => {
+        if (err) reject(err); else resolve(kp);
+      });
+    });
+    this.privateKey = forge.pki.privateKeyToPem(keypair.privateKey);
+    this.publicKey = forge.pki.publicKeyToPem(keypair.publicKey);
+    await SecureStore.setItemAsync(KEY_STORE_KEY, this.privateKey);
+    await SecureStore.setItemAsync(PUB_STORE_KEY, this.publicKey);
   }
 }
