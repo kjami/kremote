@@ -5,7 +5,7 @@ import {
   Mic, Play, SkipBack, SkipForward, Volume1, Volume2, VolumeX,
 } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
-import { RemoteKey } from '../types';
+import { DeviceApp, RemoteKey } from '../types';
 import { DPad } from '../components/DPad';
 import { LabeledBtn } from '../components/LabeledBtn';
 import { PowerButton } from '../components/PowerButton';
@@ -15,6 +15,7 @@ interface Props {
   onKey: (key: RemoteKey, label: string) => void;
   onLaunchApp: (id: string) => void;
   pressed: string | null;
+  favoriteApps: DeviceApp[];
 }
 
 function IconBtn({ id, Icon, onPress, pressed }: { id: string; Icon: React.ElementType; onPress: () => void; pressed: string | null }) {
@@ -28,7 +29,7 @@ function IconBtn({ id, Icon, onPress, pressed }: { id: string; Icon: React.Eleme
   );
 }
 
-export function RemoteScreen({ onKey, onLaunchApp, pressed }: Props) {
+export function RemoteScreen({ onKey, onLaunchApp, pressed, favoriteApps }: Props) {
   const ic = Colors.textIcon;
   const sz = 15;
 
@@ -64,8 +65,8 @@ export function RemoteScreen({ onKey, onLaunchApp, pressed }: Props) {
         <View style={styles.dividerLine} />
       </View>
 
-      {/* App shortcuts */}
-      <AppShortcuts onLaunch={onLaunchApp} pressed={pressed} />
+      {/* App shortcuts — favorites picked from the Apps tab */}
+      <AppShortcuts apps={favoriteApps} onLaunch={onLaunchApp} pressed={pressed} />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import { ConnectionStatus, Device, RemoteKey } from '../../types';
+import { ConnectionStatus, Device, DeviceApp, RemoteKey } from '../../types';
 import { SAMSUNG_APPS, SAMSUNG_KEYS } from '../../constants/commands';
 import { IDeviceService } from './IDeviceService';
 
@@ -91,6 +91,14 @@ export class SamsungTizenService implements IDeviceService {
         data: { appId: tizenAppId },
       },
     }));
+  }
+
+  async listApps(): Promise<DeviceApp[]> {
+    // Samsung exposes installed apps via REST at http://TV:8001/api/v2/applications/installed_app
+    // but it requires the same token used for WebSocket auth, which we don't
+    // currently expose here. Return [] for now — favorites will fall back to
+    // the static SAMSUNG_APPS table picked from the UI manually.
+    return [];
   }
 
   getStatus(): ConnectionStatus {

@@ -1,4 +1,4 @@
-import { ConnectionStatus, Device, RemoteKey } from '../../types';
+import { ConnectionStatus, Device, DeviceApp, RemoteKey } from '../../types';
 import { FIRESTICK_APPS, FIRESTICK_KEYCODES } from '../../constants/commands';
 import { IDeviceService } from './IDeviceService';
 import { AdbClient } from '../adb/AdbClient';
@@ -39,6 +39,15 @@ export class AmazonFirestickService implements IDeviceService {
     const activity = FIRESTICK_APPS[appId];
     if (!activity) return;
     await this.client.shell(`am start -n ${activity}`);
+  }
+
+  async listApps(): Promise<DeviceApp[]> {
+    // ADB shell `pm list packages -3` returns user-installed packages only.
+    // Output: package:com.netflix.ninja\npackage:com.amazon.tv...\n
+    // We don't have a clean "shell with output capture" helper in our minimal
+    // ADB client yet, so for now we return the curated FIRESTICK_APPS table.
+    // TODO: implement shell-with-output to scrape pm list.
+    return [];
   }
 
   getStatus(): ConnectionStatus {

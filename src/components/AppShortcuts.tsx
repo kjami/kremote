@@ -1,41 +1,48 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Star } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
-import { KodiLogo, PrimeLogo, NetflixLogo, HotstarLogo, AhaLogo, YouTubeLogo } from './logos';
-
-const APPS = [
-  { id: 'kodi',    bg: '#0E0E0E', Logo: KodiLogo    },
-  { id: 'prime',   bg: '#00A8E1', Logo: PrimeLogo   },
-  { id: 'netflix', bg: '#000000', Logo: NetflixLogo },
-  { id: 'hotstar', bg: '#0F1B3D', Logo: HotstarLogo },
-  { id: 'aha',     bg: '#FF6B00', Logo: AhaLogo     },
-  { id: 'youtube', bg: '#0F0F0F', Logo: YouTubeLogo },
-];
+import { DeviceApp } from '../types';
 
 interface Props {
+  apps: DeviceApp[];
   onLaunch: (appId: string) => void;
   pressed: string | null;
 }
 
-export function AppShortcuts({ onLaunch, pressed }: Props) {
+export function AppShortcuts({ apps, onLaunch, pressed }: Props) {
+  if (apps.length === 0) {
+    return (
+      <View style={styles.empty}>
+        <Star size={18} color={Colors.textSecondary} />
+        <Text style={styles.emptyText}>
+          Star apps in the Apps tab to pin them here.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.grid}>
-      {APPS.map(app => {
-        const Logo = app.Logo;
-        return (
-          <Pressable
-            key={app.id}
-            onPress={() => onLaunch(app.id)}
-            style={({ pressed: p }) => [
-              styles.tile,
-              { backgroundColor: app.bg },
-              (p || pressed === app.id) && styles.tilePressed,
-            ]}
-          >
-            <Logo />
-          </Pressable>
-        );
-      })}
+      {apps.map(app => (
+        <Pressable
+          key={app.id}
+          onPress={() => onLaunch(app.id)}
+          style={({ pressed: p }) => [
+            styles.tile,
+            (p || pressed === app.id) && styles.tilePressed,
+          ]}
+        >
+          {app.iconUrl ? (
+            <Image source={{ uri: app.iconUrl }} style={styles.icon} />
+          ) : (
+            <View style={styles.iconFallback}>
+              <Text style={styles.iconFallbackText}>{app.name.slice(0, 1).toUpperCase()}</Text>
+            </View>
+          )}
+          <Text style={styles.name} numberOfLines={1}>{app.name}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -53,6 +60,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    backgroundColor: Colors.btnStart,
     borderWidth: 1,
     borderColor: Colors.borderLight,
     overflow: 'hidden',
@@ -61,9 +70,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 4,
+    paddingHorizontal: 6,
   },
   tilePressed: {
     transform: [{ scale: 0.95 }],
     opacity: 0.85,
+  },
+  icon: { width: 32, height: 32, borderRadius: 6, backgroundColor: '#000' },
+  iconFallback: {
+    width: 32, height: 32, borderRadius: 6,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.dpadHighlight,
+  },
+  iconFallbackText: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  name: { color: Colors.textPrimary, fontSize: 10, textAlign: 'center' },
+
+  empty: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
 });

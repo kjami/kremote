@@ -1,25 +1,61 @@
 import 'react-native-get-random-values';
-import React, { useCallback, useRef, useState } from 'react';
+import { Buffer } from 'buffer';
+// React Native doesn't expose Buffer globally — many libs (react-native-tcp-socket)
+// expect it on the global object.
+(globalThis as any).Buffer = Buffer;
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, View,
 } from 'react-native';
 import { RemoteKey } from './src/types';
 import { Colors } from './src/constants/colors';
 import { useDevice } from './src/hooks/useDevice';
+import { DeviceManager } from './src/services/DeviceManager';
 import { DeviceSelector } from './src/components/DeviceSelector';
 import { Toast } from './src/components/Toast';
 import { TabBar, TabId } from './src/components/TabBar';
+import { PairingModal, PairingRequest } from './src/components/PairingModal';
+import { PinModal, PinRequest } from './src/components/PinModal';
 import { RemoteScreen } from './src/screens/RemoteScreen';
 import { AppsScreen } from './src/screens/AppsScreen';
 import { KeyboardScreen } from './src/screens/KeyboardScreen';
 import { OTTScreen } from './src/screens/OTTScreen';
 
 export default function App() {
-  const { devices, activeDevice, connStatus, selectDevice, sendKey, launchApp, addDevice, removeDevice } = useDevice();
+  const {
+    devices, activeDevice, connStatus,
+    selectDevice, sendKey, launchApp, addDevice, removeDevice,
+    apps, appsLoading, refreshApps,
+    favoriteIds, toggleFavorite,
+  } = useDevice();
+
+  // Favorite apps = installed apps that are starred
+  const favoriteApps = apps.filter(a => favoriteIds.has(a.id));
 
   const [pressed, setPressed]   = useState<string | null>(null);
   const [toast, setToast]       = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('remote');
+  const [pairingReq, setPairingReq] = useState<PairingRequest | null>(null);
+  const [pinReq, setPinReq] = useState<PinRequest | null>(null);
+
+  // Register the pairing + PIN prompts with the DeviceManager.
+  useEffect(() => {
+    const mgr = DeviceManager.getInstance();
+    mgr.setPairingPrompt(() => new Promise<string>((resolve, reject) => {
+      setPairingReq({
+        deviceName: activeDevice?.name ?? 'Google TV',
+        resolve: (code) => { setPairingReq(null); resolve(code); },
+        reject:  (err)  => { setPairingReq(null); reject(err);  },
+      });
+    }));
+    mgr.setPinPrompt(() => new Promise<string>((resolve, reject) => {
+      setPinReq({
+        deviceName: activeDevice?.name ?? 'Sony TV',
+        resolve: (pin) => { setPinReq(null); resolve(pin); },
+        reject:  (err) => { setPinReq(null); reject(err);  },
+      });
+    }));
+  }, [activeDevice]);
 
   const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -35,12 +71,18 @@ export default function App() {
 
   const handleKey = useCallback((key: RemoteKey, label: string) => {
     tap(key, label);
-    sendKey(key).catch(() => {});
+    sendKey(key).catch((e: Error) => {
+      console.warn('[sendKey]', key, e.message);
+      tap(key, `⚠ ${e.message.slice(0, 60)}`);
+    });
   }, [tap, sendKey]);
 
   const handleLaunch = useCallback((id: string, label?: string) => {
     tap(id, `Launching ${label ?? id}`);
-    launchApp(id).catch(() => {});
+    launchApp(id).catch((e: Error) => {
+      console.warn('[launchApp]', id, e.message);
+      tap(id, `⚠ ${e.message.slice(0, 60)}`);
+    });
   }, [tap, launchApp]);
 
   const handleSendText = useCallback((text: string) => {
@@ -80,10 +122,19 @@ export default function App() {
                   onKey={handleKey}
                   onLaunchApp={(id) => handleLaunch(id)}
                   pressed={pressed}
+                  favoriteApps={favoriteApps}
                 />
               )}
               {activeTab === 'apps' && (
-                <AppsScreen onLaunch={(id) => handleLaunch(id)} />
+                <AppsScreen
+                  apps={apps}
+                  loading={appsLoading}
+                  favoriteIds={favoriteIds}
+                  onLaunch={(id) => handleLaunch(id)}
+                  onToggleFavorite={toggleFavorite}
+                  onRefresh={refreshApps}
+                  deviceName={activeDevice?.name ?? null}
+                />
               )}
               {activeTab === 'keyboard' && (
                 <KeyboardScreen onKey={handleKey} onSendText={handleSendText} />
@@ -95,6 +146,11 @@ export default function App() {
               {/* Bottom tab bar */}
               <TabBar active={activeTab} onChange={setActiveTab} />
             </View>
+
+            {/* Pairing prompt for Google TV */}
+            <PairingModal request={pairingReq} />
+            {/* PIN prompt for Sony BRAVIA */}
+            <PinModal request={pinReq} />
 
             {/* Subtle amber reflection below card */}
             <View style={styles.reflection} />

@@ -1,4 +1,4 @@
-export type DeviceType = 'sony' | 'samsung' | 'firestick';
+export type DeviceType = 'googletv' | 'sony' | 'samsung' | 'firestick';
 
 export type RemoteKey =
   | 'power' | 'up' | 'down' | 'left' | 'right' | 'ok'
@@ -21,6 +21,13 @@ export interface ConnectionStatus {
   error?: string;
 }
 
+export interface DeviceApp {
+  id: string;          // stable per-device identifier (URI for Sony, package for ADB)
+  name: string;        // human-readable label
+  iconUrl?: string;    // optional remote icon URL
+  uri?: string;        // launch URI / activity / package
+}
+
 export interface AppShortcut {
   id: string;
   name: string;
@@ -28,27 +35,5 @@ export interface AppShortcut {
   bg: string;
 }
 
-export const PRESET_DEVICES: Device[] = [
-  {
-    id: 'sony-xr55x90j',
-    name: 'Sony Google TV',
-    type: 'sony',
-    ip: '192.168.1.100',
-    port: 80,
-    authKey: '',
-  },
-  {
-    id: 'samsung-u8200f',
-    name: 'Samsung Tizen TV',
-    type: 'samsung',
-    ip: '192.168.1.101',
-    port: 8001,
-  },
-  {
-    id: 'firestick-2nd-gen',
-    name: 'Amazon Firestick',
-    type: 'firestick',
-    ip: '192.168.1.102',
-    port: 5555,
-  },
-];
+// Empty by default — user adds their own device with a real IP.
+export const PRESET_DEVICES: Device[] = [];

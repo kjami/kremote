@@ -1,13 +1,15 @@
 import { RemoteKey } from '../types';
 
-// Sony BRAVIA IRCC (Infrared Command Codes) — Base64 encoded
+// Sony BRAVIA IRCC codes (Base64). Canonical set — verified against
+// https://pro-bravia.sony.net/develop/integrate/ircc-ip/ (Sony developer docs)
+// and aparraga/braviarc.
 export const SONY_IRCC: Record<RemoteKey, string> = {
   power:   'AAAAAQAAAAEAAAAVAw==',
   up:      'AAAAAQAAAAEAAAB0Aw==',
   down:    'AAAAAQAAAAEAAAB1Aw==',
-  left:    'AAAAAQAAAAEAAAB2Aw==',
-  right:   'AAAAAQAAAAEAAAB3Aw==',
-  ok:      'AAAAAQAAAAEAAAAkAw==',
+  left:    'AAAAAQAAAAEAAAA0Aw==',
+  right:   'AAAAAQAAAAEAAAAzAw==',
+  ok:      'AAAAAQAAAAEAAABlAw==', // DpadCenter / Confirm
   home:    'AAAAAQAAAAEAAABgAw==',
   back:    'AAAAAgAAAJcAAAAjAw==',
   volup:   'AAAAAQAAAAEAAAASAw==',
@@ -19,9 +21,9 @@ export const SONY_IRCC: Record<RemoteKey, string> = {
   pause:   'AAAAAgAAAJcAAAAZAw==',
   rewind:  'AAAAAgAAAJcAAAAbAw==',
   forward: 'AAAAAgAAAJcAAAAcAw==',
-  mic:     'AAAAAQAAAAEAAAAZAw==',
+  mic:     'AAAAAgAAAJcAAACVAw==', // GoogleAssistant / Voice search
   settings:'AAAAAgAAAJcAAAA2Aw==',
-  menu:    'AAAAAgAAAJcAAAA9Aw==',
+  menu:    'AAAAAQAAAAEAAABYAw==', // ContextMenu (was wrong before)
 };
 
 // Samsung Tizen key codes

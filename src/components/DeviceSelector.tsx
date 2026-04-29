@@ -18,7 +18,7 @@ interface Props {
 export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, onRemove }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [addMode, setAddMode] = useState(false);
-  const [form, setForm] = useState({ name: '', ip: '', type: 'sony' as DeviceType, authKey: '' });
+  const [form, setForm] = useState({ name: '', ip: '', type: 'googletv' as DeviceType, authKey: '' });
 
   const handleAdd = () => {
     if (!form.name || !form.ip) return;
@@ -30,7 +30,7 @@ export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, 
       authKey: form.authKey,
     });
     setAddMode(false);
-    setForm({ name: '', ip: '', type: 'sony', authKey: '' });
+    setForm({ name: '', ip: '', type: 'googletv', authKey: '' });
   };
 
   return (
@@ -101,11 +101,13 @@ export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, 
                   keyboardType="decimal-pad"
                 />
                 <View style={styles.typeRow}>
-                  {(['sony', 'samsung', 'firestick'] as DeviceType[]).map(t => (
+                  {(['googletv', 'sony', 'samsung', 'firestick'] as DeviceType[]).map(t => (
                     <Pressable key={t} style={[styles.typeBtn, form.type === t && styles.typeBtnActive]}
                                onPress={() => setForm(f => ({ ...f, type: t }))}>
                       <Text style={[styles.typeBtnText, form.type === t && styles.typeBtnTextActive]}>
-                        {t === 'firestick' ? 'Fire TV' : t.charAt(0).toUpperCase() + t.slice(1)}
+                        {t === 'firestick' ? 'Fire TV'
+                          : t === 'googletv'  ? 'Google TV'
+                          : t.charAt(0).toUpperCase() + t.slice(1)}
                       </Text>
                     </Pressable>
                   ))}

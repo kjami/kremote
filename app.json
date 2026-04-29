@@ -22,7 +22,11 @@
           "_androidtvremote2._tcp",
           "_googlecast._tcp"
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSAllowsArbitraryLoads": true
+        }
       }
     },
     "android": {
@@ -40,7 +44,14 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": { "usesCleartextTraffic": true },
+          "ios":     { "flipper": false }
+        }
+      ]
     ],
     "extra": {
       "eas": {

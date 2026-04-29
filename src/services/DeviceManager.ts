@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Device, DeviceType, PRESET_DEVICES } from '../types';
 import { IDeviceService } from './devices/IDeviceService';
-import { SonyBraviaService } from './devices/SonyBraviaService';
+import { SonyBraviaService, PinPrompt } from './devices/SonyBraviaService';
 import { SamsungTizenService } from './devices/SamsungTizenService';
 import { AmazonFirestickService } from './devices/AmazonFirestickService';
+import { GoogleTvService, PairingPrompt } from './devices/GoogleTvService';
 
 const DEVICES_KEY = 'saved_devices';
 
@@ -11,6 +12,12 @@ export class DeviceManager {
   private static instance: DeviceManager;
   private services = new Map<string, IDeviceService>();
   private devices: Device[] = [];
+  private pairingPrompt: PairingPrompt = async () => {
+    throw new Error('No pairing prompt registered');
+  };
+  private pinPrompt: PinPrompt = async () => {
+    throw new Error('No PIN prompt registered');
+  };
 
   static getInstance(): DeviceManager {
     if (!DeviceManager.instance) {
@@ -19,9 +26,13 @@ export class DeviceManager {
     return DeviceManager.instance;
   }
 
+  setPairingPrompt(p: PairingPrompt): void { this.pairingPrompt = p; }
+  setPinPrompt(p: PinPrompt): void { this.pinPrompt = p; }
+
   createService(device: Device): IDeviceService {
     switch (device.type as DeviceType) {
-      case 'sony':      return new SonyBraviaService(device);
+      case 'googletv':  return new GoogleTvService(device, this.pairingPrompt);
+      case 'sony':      return new SonyBraviaService(device, this.pinPrompt);
       case 'samsung':   return new SamsungTizenService(device);
       case 'firestick': return new AmazonFirestickService(device);
     }
