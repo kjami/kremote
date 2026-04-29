@@ -27,10 +27,17 @@ export function PinModal({ request }: Props) {
   const submit = () => {
     if (!request) return;
     if (!/^\d{4}$/.test(pin)) return;
-    request.resolve(pin);
+    const submitted = pin;
+    // Clear from React state immediately so the PIN doesn't linger in
+    // memory or DevTools after auth completes.
+    setPin('');
+    request.resolve(submitted);
   };
 
-  const cancel = () => request?.reject(new Error('PIN entry cancelled'));
+  const cancel = () => {
+    setPin('');
+    request?.reject(new Error('PIN entry cancelled'));
+  };
 
   return (
     <Modal transparent visible={!!request} animationType="fade" onRequestClose={cancel}>

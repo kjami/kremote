@@ -1,10 +1,25 @@
 import React, { useState } from 'react';
 import {
-  Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Settings, Wifi, WifiOff, X } from 'lucide-react-native';
 import { Colors } from '../constants/colors';
 import { Device, DeviceType } from '../types';
+
+// Reject any IP outside RFC1918 / link-local. Prevents the user from
+// accidentally pointing the app at a public host (which would then receive
+// their PIN / Basic auth in cleartext).
+function isPrivateIp(ip: string): boolean {
+  const m = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
+  if ([a, b].some(n => n < 0 || n > 255)) return false;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 169 && b === 254) return true;
+  return false;
+}
 
 interface Props {
   devices: Device[];
@@ -13,21 +28,42 @@ interface Props {
   onSelect: (device: Device) => void;
   onAdd: (device: Device) => void;
   onRemove: (id: string) => void;
+  /** Wipe ALL persistent state (auth cookie, pinned cert, paired flag, …) for a device. */
+  onForget: (id: string) => void;
 }
 
-export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, onRemove }: Props) {
+export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, onRemove, onForget }: Props) {
+  const confirmForget = (d: Device) => {
+    Alert.alert(
+      `Forget ${d.name}?`,
+      'Removes the device, its pairing, auth cookie, and pinned TLS cert. You\'ll need to pair again next time.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Forget', style: 'destructive', onPress: () => onForget(d.id) },
+      ],
+    );
+  };
   const [modalVisible, setModalVisible] = useState(false);
   const [addMode, setAddMode] = useState(false);
   const [form, setForm] = useState({ name: '', ip: '', type: 'googletv' as DeviceType, authKey: '' });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleAdd = () => {
-    if (!form.name || !form.ip) return;
+    setFormError(null);
+    if (!form.name.trim() || !form.ip.trim()) {
+      setFormError('Name and IP are required');
+      return;
+    }
+    if (!isPrivateIp(form.ip.trim())) {
+      setFormError('IP must be a private LAN address (10.x, 192.168.x, 172.16-31.x, 169.254.x)');
+      return;
+    }
     onAdd({
       id: `${form.type}-${Date.now()}`,
-      name: form.name,
-      ip: form.ip,
+      name: form.name.trim(),
+      ip: form.ip.trim(),
       type: form.type,
-      authKey: form.authKey,
+      authKey: form.authKey.trim() || undefined,
     });
     setAddMode(false);
     setForm({ name: '', ip: '', type: 'googletv', authKey: '' });
@@ -66,7 +102,12 @@ export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, 
 
             <ScrollView style={styles.deviceList}>
               {devices.map(d => (
-                <Pressable key={d.id} style={styles.deviceItem} onPress={() => { onSelect(d); setModalVisible(false); }}>
+                <Pressable
+                  key={d.id}
+                  style={styles.deviceItem}
+                  onPress={() => { onSelect(d); setModalVisible(false); }}
+                  onLongPress={() => confirmForget(d)}
+                >
                   <View style={styles.deviceItemLeft}>
                     {d.id === active?.id && isConnected
                       ? <Wifi size={16} color={Colors.connected} />
@@ -76,11 +117,16 @@ export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, 
                       <Text style={styles.deviceItemSub}>{d.type.toUpperCase()} · {d.ip}</Text>
                     </View>
                   </View>
-                  <Pressable onPress={() => onRemove(d.id)}>
+                  <Pressable hitSlop={8} onPress={() => onRemove(d.id)}>
                     <X size={14} color={Colors.textSecondary} />
                   </Pressable>
                 </Pressable>
               ))}
+              {devices.length > 0 && (
+                <Text style={styles.forgetHint}>
+                  Long-press a device to fully forget it (clears auth state).
+                </Text>
+              )}
             </ScrollView>
 
             {addMode ? (
@@ -121,8 +167,9 @@ export function DeviceSelector({ devices, active, isConnected, onSelect, onAdd, 
                     onChangeText={t => setForm(f => ({ ...f, authKey: t }))}
                   />
                 )}
+                {formError && <Text style={styles.formError}>{formError}</Text>}
                 <View style={styles.addBtns}>
-                  <Pressable style={styles.cancelBtn} onPress={() => setAddMode(false)}>
+                  <Pressable style={styles.cancelBtn} onPress={() => { setAddMode(false); setFormError(null); }}>
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                   </Pressable>
                   <Pressable style={styles.saveBtn} onPress={handleAdd}>
@@ -182,4 +229,6 @@ const styles = StyleSheet.create({
   cancelBtnText: { color: Colors.textSecondary, fontSize: 14 },
   saveBtn: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: Colors.amber, alignItems: 'center' },
   saveBtnText: { color: '#1a0f00', fontSize: 14, fontWeight: '700' },
+  formError: { color: '#ff7a7a', fontSize: 12, lineHeight: 16, marginTop: -4 },
+  forgetHint: { color: Colors.textSecondary, fontSize: 10, fontStyle: 'italic', textAlign: 'center', marginTop: 12 },
 });

@@ -24,7 +24,7 @@ import { OTTScreen } from './src/screens/OTTScreen';
 export default function App() {
   const {
     devices, activeDevice, connStatus,
-    selectDevice, sendKey, launchApp, addDevice, removeDevice,
+    selectDevice, sendKey, launchApp, addDevice, removeDevice, forgetDevice,
     apps, appsLoading, refreshApps,
     favoriteIds, toggleFavorite,
   } = useDevice();
@@ -114,6 +114,7 @@ export default function App() {
                 onSelect={selectDevice}
                 onAdd={addDevice}
                 onRemove={removeDevice}
+                onForget={forgetDevice}
               />
 
               {/* Tab content */}

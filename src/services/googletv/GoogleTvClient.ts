@@ -24,6 +24,11 @@ export interface GoogleTvCallbacks {
 
 const PAIR_PORT = 6467;
 const CTRL_PORT = 6466;
+const PINNED_CERT_PREFIX = 'gtv_pinned_cert_';
+
+function pinnedCertKey(host: string): string {
+  return PINNED_CERT_PREFIX + host.replace(/[^a-zA-Z0-9]/g, '_');
+}
 
 export class GoogleTvClient {
   private identity!: ClientIdentity;
@@ -90,12 +95,46 @@ export class GoogleTvClient {
       console.log('[GoogleTV] no stored pairing for', this.host, '— starting pairing flow');
       await this.runPairing();
       await SecureStore.setItemAsync(pkey, '1');
+      // After successful pairing, pin the server's cert fingerprint so we
+      // can detect a MITM on subsequent connects (TV cert is self-signed
+      // so we can't rely on the system trust store).
+      const fp = await this.getCurrentPeerFingerprint();
+      if (fp) {
+        await SecureStore.setItemAsync(pinnedCertKey(this.host), fp);
+        console.log('[GoogleTV] pinned TV cert fingerprint:', fp.slice(0, 16) + '…');
+      }
       console.log('[GoogleTV] pairing complete, opening control channel');
     } else {
       console.log('[GoogleTV] device already paired, opening control channel directly');
     }
     await this.openControl();
+    // Verify the control-channel cert matches the pinned one.
+    await this.verifyPinnedCert();
     console.log('[GoogleTV] control channel established');
+  }
+
+  private async getCurrentPeerFingerprint(): Promise<string | null> {
+    try {
+      const peer = await (this.socket as any)?.getPeerCertificate?.();
+      return peer?.fingerprint256 ?? peer?.fingerprint ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async verifyPinnedCert(): Promise<void> {
+    const expected = await SecureStore.getItemAsync(pinnedCertKey(this.host));
+    if (!expected) return; // no pin yet (e.g. legacy install)
+    const actual = await this.getCurrentPeerFingerprint();
+    if (!actual) return;
+    if (actual !== expected) {
+      this.disconnect();
+      throw new Error(
+        `TV cert fingerprint changed (possible MITM). ` +
+        `Expected ${expected.slice(0, 16)}…, got ${actual.slice(0, 16)}…. ` +
+        `Use "Forget device" to re-pair if the TV was reset.`
+      );
+    }
   }
 
   disconnect(): void {

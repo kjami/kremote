@@ -88,6 +88,18 @@ export function useDevice() {
     if (activeDevice?.id === deviceId) setActiveDevice(updated[0] ?? null);
   }, [activeDevice]);
 
+  /**
+   * Wipe ALL persistent state for a device — record, authKey, auth cookies,
+   * pinned TLS cert, paired flag. Use when the user explicitly wants to
+   * reset trust (e.g. TV was factory-reset, or possible MITM).
+   */
+  const forgetDevice = useCallback(async (deviceId: string) => {
+    await manager.forgetDevice(deviceId);
+    const updated = await manager.loadDevices();
+    setDevices(updated);
+    if (activeDevice?.id === deviceId) setActiveDevice(updated[0] ?? null);
+  }, [activeDevice]);
+
   // Refresh installed apps from the active device
   const refreshApps = useCallback(async () => {
     if (!activeDevice) return;
@@ -121,7 +133,7 @@ export function useDevice() {
 
   return {
     devices, activeDevice, connStatus,
-    selectDevice, sendKey, launchApp, addDevice, removeDevice,
+    selectDevice, sendKey, launchApp, addDevice, removeDevice, forgetDevice,
     apps, appsLoading, refreshApps,
     favoriteIds, toggleFavorite,
   };

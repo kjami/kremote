@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Device, DeviceType, PRESET_DEVICES } from '../types';
 import { IDeviceService } from './devices/IDeviceService';
 import { SonyBraviaService, PinPrompt } from './devices/SonyBraviaService';
@@ -7,6 +8,11 @@ import { AmazonFirestickService } from './devices/AmazonFirestickService';
 import { GoogleTvService, PairingPrompt } from './devices/GoogleTvService';
 
 const DEVICES_KEY = 'saved_devices';
+const AUTH_KEY_PREFIX = 'device_authkey_';
+
+function authKeyName(deviceId: string): string {
+  return AUTH_KEY_PREFIX + deviceId;
+}
 
 export class DeviceManager {
   private static instance: DeviceManager;
@@ -58,7 +64,16 @@ export class DeviceManager {
   async loadDevices(): Promise<Device[]> {
     try {
       const raw = await AsyncStorage.getItem(DEVICES_KEY);
-      this.devices = raw ? JSON.parse(raw) : PRESET_DEVICES;
+      const fromDisk: Device[] = raw ? JSON.parse(raw) : PRESET_DEVICES;
+      // Rehydrate authKey from SecureStore (it's stripped before persistence).
+      this.devices = await Promise.all(fromDisk.map(async (d) => {
+        try {
+          const k = await SecureStore.getItemAsync(authKeyName(d.id));
+          return k ? { ...d, authKey: k } : d;
+        } catch {
+          return d;
+        }
+      }));
     } catch {
       this.devices = PRESET_DEVICES;
     }
@@ -67,7 +82,16 @@ export class DeviceManager {
 
   async saveDevices(devices: Device[]): Promise<void> {
     this.devices = devices;
-    await AsyncStorage.setItem(DEVICES_KEY, JSON.stringify(devices));
+    // Persist secrets separately, scrub them out of the AsyncStorage record.
+    await Promise.all(devices.map(async (d) => {
+      if (d.authKey) {
+        await SecureStore.setItemAsync(authKeyName(d.id), d.authKey).catch(() => {});
+      } else {
+        await SecureStore.deleteItemAsync(authKeyName(d.id)).catch(() => {});
+      }
+    }));
+    const stripped = devices.map(({ authKey: _ak, ...rest }) => rest);
+    await AsyncStorage.setItem(DEVICES_KEY, JSON.stringify(stripped));
   }
 
   async addDevice(device: Device): Promise<void> {
@@ -78,6 +102,25 @@ export class DeviceManager {
   async removeDevice(deviceId: string): Promise<void> {
     await this.disconnectDevice(deviceId);
     this.services.delete(deviceId);
+    await SecureStore.deleteItemAsync(authKeyName(deviceId)).catch(() => {});
     await this.saveDevices(this.devices.filter(d => d.id !== deviceId));
+  }
+
+  /**
+   * Forget a device — delete *all* persistent state for it: the device record,
+   * its authKey, the Sony auth cookie, the Polo client cert (only if no other
+   * device shares it — which is the case in our model), and the Polo paired
+   * flag for this host.
+   */
+  async forgetDevice(deviceId: string): Promise<void> {
+    const dev = this.devices.find(d => d.id === deviceId);
+    if (dev) {
+      // Wipe Sony auth cookie + Polo paired flag (both keyed by host)
+      const ipKey = dev.ip.replace(/[^a-zA-Z0-9]/g, '_');
+      await SecureStore.deleteItemAsync(`sony_auth_cookie_${ipKey}`).catch(() => {});
+      await SecureStore.deleteItemAsync(`gtv_paired_v3_${ipKey}`).catch(() => {});
+      await SecureStore.deleteItemAsync(`gtv_pinned_cert_${ipKey}`).catch(() => {});
+    }
+    await this.removeDevice(deviceId);
   }
 }

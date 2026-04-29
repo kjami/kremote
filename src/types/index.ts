@@ -12,6 +12,11 @@ export interface Device {
   type: DeviceType;
   ip: string;
   port?: number;
+  /**
+   * Per-device shared secret (e.g. Sony Pre-Shared Key). Stored in
+   * SecureStore via {@link DeviceManager}, NOT in the persisted device
+   * list. Never serialize this field to AsyncStorage.
+   */
   authKey?: string;
 }
 

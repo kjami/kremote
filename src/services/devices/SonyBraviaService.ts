@@ -41,6 +41,11 @@ export class SonyBraviaService implements IDeviceService {
   private connectInFlight: Promise<void> | null = null;
   private appsCache: { apps: DeviceApp[]; ts: number } | null = null;
   private static APP_CACHE_TTL_MS = 5 * 60 * 1000;
+  // Rate-limit PIN entry: cooldown after MAX consecutive failures.
+  private static MAX_PIN_ATTEMPTS = 3;
+  private static PIN_COOLDOWN_MS = 60 * 1000;
+  private pinFailures = 0;
+  private pinCooldownUntil = 0;
 
   constructor(private device: Device, private requestPin: PinPrompt) {
     this.baseUrl = `http://${device.ip}`;
@@ -92,6 +97,11 @@ export class SonyBraviaService implements IDeviceService {
   }
 
   private async registerWithPin(): Promise<void> {
+    const now = Date.now();
+    if (this.pinCooldownUntil > now) {
+      const secs = Math.ceil((this.pinCooldownUntil - now) / 1000);
+      throw new Error(`Too many failed PIN attempts. Try again in ${secs}s.`);
+    }
     // Step 1: actRegister with no auth — expect 401 + WWW-Authenticate.
     // Side effect: TV displays a 4-digit PIN on screen.
     console.log('[Sony] step 1 — sending actRegister (no auth) to trigger PIN display');
@@ -128,9 +138,16 @@ export class SonyBraviaService implements IDeviceService {
       body: actRegisterBody(),
     });
     if (!res2.ok) {
+      this.pinFailures++;
+      if (this.pinFailures >= SonyBraviaService.MAX_PIN_ATTEMPTS) {
+        this.pinCooldownUntil = Date.now() + SonyBraviaService.PIN_COOLDOWN_MS;
+        this.pinFailures = 0;
+        throw new Error(`PIN incorrect ${SonyBraviaService.MAX_PIN_ATTEMPTS}× in a row. Cooling down 60s.`);
+      }
       const t = await res2.text().catch(() => '');
       throw new Error(`Sony PIN auth: ${res2.status} ${t.slice(0, 100)}`);
     }
+    this.pinFailures = 0;
 
     const setCookie = res2.headers.get('set-cookie');
     if (!setCookie) throw new Error('Sony PIN auth: no Set-Cookie returned');
